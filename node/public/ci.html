@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, width=device-width" />
+        <meta content="telephone=no" name="format-detection">
+        <meta name="apple-mobile-web-app-capable">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black">
+
+        <style>
+            *{margin: 0; padding: 0;}
+            .write_position{width:6rem;height: 6rem;display: block;margin: 0 auto;background-color: #999999;}
+            .test_btns{width: 6rem;margin: 0.5rem auto;display: flex;justify-content: space-around;align-items: center;}
+            .test_btns button{width: 2.5rem;height: 1rem;}
+            #write_space{height: 0.8rem;line-height: 0.8rem;font-size: 0.6rem;text-align: center;}
+        </style>
+    </head>
+    <body>
+        <canvas id="write_canvas" class="write_position"></canvas>
+        <div id="write_space"></div>
+        <div class="test_btns">
+            <button id="uploadIamge">提交并重写</button>
+            <button id="clearIamge">清除</button>
+        </div>
+        <div id="dataShow" style="width: 7.5rem;font-size: 0.5rem;text-align: center;margin: 0 auto;"></div>
+        <script>
+            function resiseEvent(config) {
+                config = config || {}
+                var e = config.e || 750
+                  , t = config.t || 0;
+                (t = document.documentElement.clientWidth || document.body.clientWidth || window.innerWidth || window.screen.width),
+                r = t / e * 100,
+                t >= 768 && (r = 65,
+                document.body.style.width = e / 100 + "rem",
+                document.body.style.margin = "0 auto");
+                document.documentElement.style.fontSize = r + "px";
+                var n = document.createElement("div");
+                n.style.width = "1rem",
+                n.style.height = "1rem",
+                document.body.appendChild(n);
+
+                var c = n.clientWidth / r;
+
+                (c > 1.05 || c < .95) && (r /= c,
+                document.documentElement.style.fontSize = r + "px"),
+                document.body.removeChild(n);
+
+                if(config.callback) {
+                    config.callback()
+                }
+            }
+
+            window.addEventListener('resize', function(e){
+                if(window.resizeTimmer) {
+                    clearTimeout(window.resizeTimmer)
+                    window.resizeTimmer = null
+                }
+                window.resizeTimmer = setTimeout(function(){
+                    resiseEvent({callback:function(){
+                        if(window.currentWriterDom) {
+                            currentWriterDom.resizeEvent();
+                        }
+                    }})
+                }, 500)
+            });
+            document.addEventListener('DOMContentLoaded', function(){
+                window.currentWriterDom = new WriterPosition({
+                    id: 'write_canvas'
+                });
+                resiseEvent({callback:function(){
+                    currentWriterDom.resizeEvent();
+                }})
+                reloadTicket();
+            });
+
+            var WriterPosition = function(option) {
+                this.targetId = option.id;
+                this.targetElement = document.querySelector('#'+this.targetId);
+                this.ctx = this.targetElement.getContext('2d');
+                this._init();
+            }
+
+            WriterPosition.prototype._init = function() {
+                var me = this;
+                this.resizeEvent();
+                this.targetElement.addEventListener('touchstart', function(e){
+                    me._handleEvents(e);
+                    return false;
+                });
+                this.targetElement.addEventListener('touchmove', function(e){
+                    me._handleEvents(e);
+                    return false;
+                });
+                this.targetElement.addEventListener('touchend', function(e){
+                    me._handleEvents(e);
+                    return false;
+                });
+            }
+
+            WriterPosition.prototype.resetBG = function() {
+                this.ctx.clearRect(0, 0, 
+                    this.targetElement.width,
+                    this.targetElement.height);
+            }
+
+
+            WriterPosition.prototype._handleEvents = function(e) {
+                if(!e.isTrusted) {
+                    return;
+                }
+                e.preventDefault();
+                var pos = e.changedTouches[0];
+                var dData = {
+                    x: pos.pageX - this.targetElement.offsetLeft, 
+                    y: pos.pageY - this.targetElement.offsetTop
+                };
+                var ctx = this.ctx;
+                switch(e.type) {
+                    case 'touchstart': {
+                        ctx.beginPath();
+                        ctx.moveTo(dData.x, dData.y);
+                        ctx.lineWidth = 18;
+                        ctx.strokeStyle = 'grey';
+                        ctx.lineCap = 'round';
+                        ctx.lineJoin = "round";
+                        ctx.stroke();
+                        break;
+                    }
+                    case 'touchmove':{
+                        ctx.lineTo(dData.x, dData.y);
+                        ctx.stroke();
+                        break;
+                    }
+                    case 'touchend':{
+                        ctx.lineTo(dData.x, dData.y);
+                        ctx.stroke();
+                        break;
+                    }
+                }
+            }
+
+            WriterPosition.prototype.resizeEvent = function() {
+                this.targetElement.setAttribute('width', this.targetElement.offsetWidth + 'px');
+                this.targetElement.setAttribute('height', this.targetElement.offsetHeight + 'px');
+            }
+
+            WriterPosition.prototype.toDataURL = function(callback) {
+                var tmpCanvas = document.createElement('canvas');
+                tmpCanvas.width = 28;
+                tmpCanvas.height = 28;
+                var tmpctx = tmpCanvas.getContext('2d');
+                var img = new Image();
+                img.onload = function(){
+                    tmpctx.drawImage(img,0,0,28,28);
+                    console.log(tmpctx.getImageData(0,0,28,28));
+                    callback(tmpCanvas.toDataURL('image/png'));
+                }
+                img.src = this.targetElement.toDataURL('image/png');
+            }
+
+            var ajaxData = function(url, config) {
+                var ajax = new XMLHttpRequest();
+                config = config || {};
+                config.method = config.method || 'get';
+                config.data = config.data || {};
+                var sendData = [];
+                for(var k in config.data) {
+                    sendData.push(k+'='+config.data[k])
+                }
+                sendData = sendData.join('&')
+
+                if(config.method == 'post') {
+                    ajax.open(config.method, url, false);
+                    ajax.setRequestHeader("Content-type","application/x-www-form-urlencoded");
+                } else {
+                    var split = (url.indexOf('?') > -1) ? '&' : '?';
+                    if(sendData) {
+                        url = url + split + sendData;
+                        sendData = '';
+                    }
+                    ajax.open(config.method, url, false);
+                }
+
+                var hendleChangeEvents = function() {
+                    if((ajax.status > 0) && (ajax.status < 400)) {
+                        var event = config.success;
+                        if(event) {
+                            config.success = null;
+                            event(ajax.responseText);
+                        }
+                    } else {
+                        var event = config.failed;
+                        if(event) {
+                            config.failed = null;
+                            event(ajax.responseText);
+                        }
+                    }
+                }
+
+                ajax.onreadystatechange = function() {
+                    // console.log('onreadystatuschange:', ajax.readyState, 'status:', ajax.status, 'ret_data:', ajax.responseText);
+                    switch(ajax.readyState) {
+                        case 3: {
+                            hendleChangeEvents();
+                        }
+                        case 4: {
+                            hendleChangeEvents();
+                        }
+                    }
+                }
+                ajax.send(sendData);
+            }
+
+            var reloadTicket = function() {
+                ajaxData('/validate/pick', {
+                    method: 'get',
+                    success: function(data) {
+                        console.log('success', data);
+                        var data = JSON.parse(data);
+                        data = data.data;
+                        window.showNUM = data.num;
+                        document.querySelector('#write_space').innerText = '请写入:'+showNUM;
+                    },
+                    failed: function() {
+                        console.log('error');
+                    }
+                });
+            }
+
+            document.querySelector('#write_space').addEventListener('click', function(){
+                reloadTicket();
+            });
+
+
+            document.querySelector('#uploadIamge').addEventListener('click', function(){
+                currentWriterDom.toDataURL(function(dataURL){
+                    ajaxData('/validate/check', {
+                        method: 'post',
+                        data: {
+                            num: showNUM,
+                            img: encodeURIComponent(dataURL)
+                        },
+                        success: function(data) {
+                            console.log('success', data);
+                            var data = JSON.parse(data);
+                            data = data.data;
+                            var color = 'black';
+                            if(data.max != data.num) {
+                                color = 'red';
+                            }
+                            var html = ['识别:<span style="color:',color,'">',
+                                            data.max,
+                                        '</span>(',data.res,'%) 实际:',
+                                        '<span style="color:',color,'">',
+                                            data.num,
+                                        '</span>(',data.numRes,'%)'
+                                        ].join('');
+                            document.querySelector('#dataShow').innerHTML = html;
+
+                            // 重新获取
+                            reloadTicket();
+
+                            // 重设背景
+                            currentWriterDom.resetBG();
+                        },
+                        failed: function() {
+                            console.log('error');
+                        }
+                    });
+                })
+            });
+
+            document.querySelector('#clearIamge').addEventListener('click', function(){
+                currentWriterDom.resetBG();
+            });
+
+
+
+        </script>
+    </body>
+</html>
